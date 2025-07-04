@@ -29,18 +29,6 @@ export class GameComponent implements AfterViewInit {
     { x: -1, y: 0 },
   ];
 
-  // ngAfterViewInit() {
-  //   this.canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
-  //   this.ctx = this.canvas.getContext('2d')!;
-  //   this.resizeCanvas();
-  //   this.setupMaze();
-  //   this.gameLoop();
-  //   window.addEventListener('resize', () => this.resizeCanvas());
-  //   window.addEventListener('devicemotion', (event) =>
-  //     this.handleMotion(event)
-  //   );
-  // }
-
   ngAfterViewInit() {
     this.canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
     this.ctx = this.canvas.getContext('2d')!;
@@ -124,8 +112,6 @@ export class GameComponent implements AfterViewInit {
     this.ctx.fill();
   }
 
-
-
   @HostListener('document:click')
   handleClick() {
     if (typeof DeviceMotionEvent !== 'undefined' && typeof (DeviceMotionEvent as any).requestPermission === 'function') {
@@ -144,30 +130,49 @@ export class GameComponent implements AfterViewInit {
     }
   }
 
+moveBall(direction: string) {
+  const speed = 0.5; // ajustável, parecido com mobile
 
-  moveBall(direction: string) {
-    let newX = this.ball.x;
-    let newY = this.ball.y;
-    if (direction === 'ArrowUp') newY--;
-    if (direction === 'ArrowDown') newY++;
-    if (direction === 'ArrowLeft') newX--;
-    if (direction === 'ArrowRight') newX++;
-
-    const currentCell = this.grid.find((c) => c.x === this.ball.x && c.y === this.ball.y)!;
-    const dirIndex = this.directions.findIndex(d => d.x === (newX - this.ball.x) && d.y === (newY - this.ball.y));
-    const targetCell = this.grid.find((c) => c.x === newX && c.y === newY);
-
-    if (targetCell && !currentCell.walls[dirIndex]) {
-      this.ball.x = newX;
-      this.ball.y = newY;
-    }
-
-    if (this.ball.x === this.goal.x && this.ball.y === this.goal.y) {
-      this.setupMaze();
-      this.ball.x = 0;
-      this.ball.y = 0;
-    }
+  switch (direction) {
+    case 'ArrowUp':
+      this.ball.vy = -speed;
+      break;
+    case 'ArrowDown':
+      this.ball.vy = speed;
+      break;
+    case 'ArrowLeft':
+      this.ball.vx = -speed;
+      break;
+    case 'ArrowRight':
+      this.ball.vx = speed;
+      break;
   }
+}
+
+
+  // moveBall(direction: string) {
+  //   let newX = this.ball.x;
+  //   let newY = this.ball.y;
+  //   if (direction === 'ArrowUp') newY--;
+  //   if (direction === 'ArrowDown') newY++;
+  //   if (direction === 'ArrowLeft') newX--;
+  //   if (direction === 'ArrowRight') newX++;
+
+  //   const currentCell = this.grid.find((c) => c.x === this.ball.x && c.y === this.ball.y)!;
+  //   const dirIndex = this.directions.findIndex(d => d.x === (newX - this.ball.x) && d.y === (newY - this.ball.y));
+  //   const targetCell = this.grid.find((c) => c.x === newX && c.y === newY);
+
+  //   if (targetCell && !currentCell.walls[dirIndex]) {
+  //     this.ball.x = newX;
+  //     this.ball.y = newY;
+  //   }
+
+  //   if (this.ball.x === this.goal.x && this.ball.y === this.goal.y) {
+  //     this.setupMaze();
+  //     this.ball.x = 0;
+  //     this.ball.y = 0;
+  //   }
+  // }
 
   handleMotion(event: DeviceMotionEvent) {
     const acc = event.accelerationIncludingGravity;
@@ -176,9 +181,6 @@ export class GameComponent implements AfterViewInit {
     this.ball.vx = -(acc.x ?? 0) * this.ball.speed * 0.5;
     this.ball.vy = (acc.y ?? 0) * this.ball.speed * 0.5;
 
-
-    // this.ball.vx = (acc.x ?? 0) * this.ball.speed;
-    // this.ball.vy = -(acc.y ?? 0) * this.ball.speed;
   }
 
   updateBallPosition() {
@@ -193,13 +195,13 @@ export class GameComponent implements AfterViewInit {
 
   // Controle para impedir que passe pelas paredes horizontalmente
   if (this.ball.vx > 0 && currentCell.walls[1]) {
-    if (Math.floor(nextX + 0.3) > currentCell.x) {
+    if (Math.floor(nextX + 0.49) > currentCell.x) {
       this.ball.vx = 0;
     } else {
       this.ball.x = nextX;
     }
   } else if (this.ball.vx < 0 && currentCell.walls[3]) {
-    if (Math.floor(nextX - 0.3) < currentCell.x) {
+    if (Math.floor(nextX - 0.49) < currentCell.x) {
       this.ball.vx = 0;
     } else {
       this.ball.x = nextX;
@@ -210,13 +212,13 @@ export class GameComponent implements AfterViewInit {
 
   // Controle para impedir que passe pelas paredes verticalmente
   if (this.ball.vy > 0 && currentCell.walls[2]) {
-    if (Math.floor(nextY + 0.3) > currentCell.y) {
+    if (Math.floor(nextY + 0.49) > currentCell.y) {
       this.ball.vy = 0;
     } else {
       this.ball.y = nextY;
     }
   } else if (this.ball.vy < 0 && currentCell.walls[0]) {
-    if (Math.floor(nextY - 0.3) < currentCell.y) {
+    if (Math.floor(nextY - 0.49) < currentCell.y) {
       this.ball.vy = 0;
     } else {
       this.ball.y = nextY;
@@ -248,7 +250,8 @@ export class GameComponent implements AfterViewInit {
 
   @HostListener('window:keydown', ['$event'])
   onKeydown(event: KeyboardEvent) {
-    this.moveBall(event.key);
+     if (['ArrowUp', 'ArrowDown'].includes(event.key)) this.ball.vy = 0;
+  if (['ArrowLeft', 'ArrowRight'].includes(event.key)) this.ball.vx = 0;
   }
 }
 
