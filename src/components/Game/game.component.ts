@@ -173,8 +173,8 @@ export class GameComponent implements AfterViewInit {
     const acc = event.accelerationIncludingGravity;
     if (!acc) return;
 
-    this.ball.vx = (acc.x ?? 0) * this.ball.speed * 0.2;
-    this.ball.vy = -(acc.y ?? 0) * this.ball.speed * 0.2;
+    this.ball.vx = -(acc.x ?? 0) * this.ball.speed * 0.5;
+    this.ball.vy = (acc.y ?? 0) * this.ball.speed * 0.5;
 
 
     // this.ball.vx = (acc.x ?? 0) * this.ball.speed;
@@ -182,52 +182,62 @@ export class GameComponent implements AfterViewInit {
   }
 
   updateBallPosition() {
-    const newX = this.ball.x + this.ball.vx * 0.098; // 60fps ~ 16ms
-    const newY = this.ball.y + this.ball.vy * 0.098; //suavidade
+  const nextX = this.ball.x + this.ball.vx * 0.098;
+  const nextY = this.ball.y + this.ball.vy * 0.098;
 
-    const cellX = Math.floor(this.ball.x);
-    const cellY = Math.floor(this.ball.y);
+  const currentCell = this.grid.find(c =>
+    Math.floor(this.ball.x) === c.x && Math.floor(this.ball.y) === c.y
+  );
 
-    const dirX = newX - this.ball.x > 0 ? 1 : -1;
-    const dirY = newY - this.ball.y > 0 ? 1 : -1;
+  if (!currentCell) return;
 
-    const currentCell = this.grid.find(c => c.x === cellX && c.y === cellY);
-    if (!currentCell) return;
-
-    // Check horizontal
-    const targetXCell = Math.floor(newX);
-    if (targetXCell !== cellX) {
-      const wall = dirX === 1 ? 1 : 3;
-      if (currentCell.walls[wall]) {
-        this.ball.vx = 0;
-      } else {
-        this.ball.x = newX;
-      }
-    } else {
-      this.ball.x = newX;
-    }
-
-    const targetYCell = Math.floor(newY);
-    if (targetYCell !== cellY) {
-      const wall = dirY === 1 ? 2 : 0; // Corrigido! Antes estava usando `dirX`
-      if (currentCell.walls[wall]) {
-        this.ball.vy = 0;
-      } else {
-        this.ball.y = newY;
-      }
-    } else {
-      this.ball.y = newY;
-    }
-
-    // Ganhou?
-    if (Math.floor(this.ball.x) === this.goal.x && Math.floor(this.ball.y) === this.goal.y) {
-      this.setupMaze();
-      this.ball.x = 0;
-      this.ball.y = 0;
+  // Controle para impedir que passe pelas paredes horizontalmente
+  if (this.ball.vx > 0 && currentCell.walls[1]) {
+    if (Math.floor(nextX + 0.3) > currentCell.x) {
       this.ball.vx = 0;
-      this.ball.vy = 0;
+    } else {
+      this.ball.x = nextX;
     }
+  } else if (this.ball.vx < 0 && currentCell.walls[3]) {
+    if (Math.floor(nextX - 0.3) < currentCell.x) {
+      this.ball.vx = 0;
+    } else {
+      this.ball.x = nextX;
+    }
+  } else {
+    this.ball.x = nextX;
   }
+
+  // Controle para impedir que passe pelas paredes verticalmente
+  if (this.ball.vy > 0 && currentCell.walls[2]) {
+    if (Math.floor(nextY + 0.3) > currentCell.y) {
+      this.ball.vy = 0;
+    } else {
+      this.ball.y = nextY;
+    }
+  } else if (this.ball.vy < 0 && currentCell.walls[0]) {
+    if (Math.floor(nextY - 0.3) < currentCell.y) {
+      this.ball.vy = 0;
+    } else {
+      this.ball.y = nextY;
+    }
+  } else {
+    this.ball.y = nextY;
+  }
+
+  // Limites do canvas
+  this.ball.x = Math.max(0, Math.min(this.cols - 1, this.ball.x));
+  this.ball.y = Math.max(0, Math.min(this.rows - 1, this.ball.y));
+
+  // Chegou no final?
+  if (Math.floor(this.ball.x) === this.goal.x && Math.floor(this.ball.y) === this.goal.y) {
+    this.setupMaze();
+    this.ball.x = 0;
+    this.ball.y = 0;
+    this.ball.vx = 0;
+    this.ball.vy = 0;
+  }
+}
 
   gameLoop() {
     this.generateMaze();
