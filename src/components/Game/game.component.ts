@@ -21,6 +21,7 @@ export class GameComponent implements AfterViewInit {
   private goal = { x: this.cols - 1, y: this.rows - 1 };
 
   private ball = { x: 0, y: 0, vx: 0, vy: 0, radius: 0, speed: 2 };
+  // private ball = { x: 0, y: 0, radius: 0, speed: 0.1 };
 
   directions = [
     { x: 0, y: -1 },
@@ -35,26 +36,19 @@ export class GameComponent implements AfterViewInit {
     this.resizeCanvas();
     this.setupMaze();
     this.gameLoop();
-
     window.addEventListener('resize', () => this.resizeCanvas());
-
-    // ADICIONAR ISSO:
-    if (/Mobi|Android/i.test(navigator.userAgent)) {
-      alert('Toque na tela para ativar os sensores de movimento.');
-    }
-
     window.addEventListener('devicemotion', (event) =>
       this.handleMotion(event)
     );
   }
 
   resizeCanvas() {
-    const size = Math.min(window.innerWidth, window.innerHeight); // usa o menor dos dois
-    this.canvas.width = size;
-    this.canvas.height = size;
-    this.cellSize = size / this.cols;
-    this.ball.radius = this.cellSize / 4;
-  }
+  const size = Math.min(window.innerWidth, window.innerHeight); // usa o menor dos dois
+  this.canvas.width = size;
+  this.canvas.height = size;
+  this.cellSize = size / this.cols;
+  this.ball.radius = this.cellSize / 4;
+}
 
   setupMaze() {
     this.grid = [];
@@ -112,146 +106,55 @@ export class GameComponent implements AfterViewInit {
     this.ctx.fill();
   }
 
-  @HostListener('document:click')
-  handleClick() {
-    if (typeof DeviceMotionEvent !== 'undefined' && typeof (DeviceMotionEvent as any).requestPermission === 'function') {
-      (DeviceMotionEvent as any).requestPermission()
-        .then((permissionState: string) => {
-          if (permissionState === 'granted') {
-            window.addEventListener('devicemotion', this.handleMotion.bind(this));
-            alert('Sensores ativados!');
-          } else {
-            alert('Permissão para sensores negada.');
-          }
-        })
-        .catch(console.error);
-    } else {
-      window.addEventListener('devicemotion', this.handleMotion.bind(this));
+  moveBall(direction: string) {
+    let newX = this.ball.x;
+    let newY = this.ball.y;
+    if (direction === 'ArrowUp') newY--;
+    if (direction === 'ArrowDown') newY++;
+    if (direction === 'ArrowLeft') newX--;
+    if (direction === 'ArrowRight') newX++;
+
+    const currentCell = this.grid.find((c) => c.x === this.ball.x && c.y === this.ball.y)!;
+    const dirIndex = this.directions.findIndex(d => d.x === (newX - this.ball.x) && d.y === (newY - this.ball.y));
+    const targetCell = this.grid.find((c) => c.x === newX && c.y === newY);
+
+    if (targetCell && !currentCell.walls[dirIndex]) {
+      this.ball.x = newX;
+      this.ball.y = newY;
+    }
+
+    if (this.ball.x === this.goal.x && this.ball.y === this.goal.y) {
+      this.setupMaze();
+      this.ball.x = 0;
+      this.ball.y = 0;
     }
   }
-
-moveBall(direction: string) {
-  const speed = 0.5; // ajustável, parecido com mobile
-
-  switch (direction) {
-    case 'ArrowUp':
-      this.ball.vy = -speed;
-      break;
-    case 'ArrowDown':
-      this.ball.vy = speed;
-      break;
-    case 'ArrowLeft':
-      this.ball.vx = -speed;
-      break;
-    case 'ArrowRight':
-      this.ball.vx = speed;
-      break;
-  }
-}
-
-
-  // moveBall(direction: string) {
-  //   let newX = this.ball.x;
-  //   let newY = this.ball.y;
-  //   if (direction === 'ArrowUp') newY--;
-  //   if (direction === 'ArrowDown') newY++;
-  //   if (direction === 'ArrowLeft') newX--;
-  //   if (direction === 'ArrowRight') newX++;
-
-  //   const currentCell = this.grid.find((c) => c.x === this.ball.x && c.y === this.ball.y)!;
-  //   const dirIndex = this.directions.findIndex(d => d.x === (newX - this.ball.x) && d.y === (newY - this.ball.y));
-  //   const targetCell = this.grid.find((c) => c.x === newX && c.y === newY);
-
-  //   if (targetCell && !currentCell.walls[dirIndex]) {
-  //     this.ball.x = newX;
-  //     this.ball.y = newY;
-  //   }
-
-  //   if (this.ball.x === this.goal.x && this.ball.y === this.goal.y) {
-  //     this.setupMaze();
-  //     this.ball.x = 0;
-  //     this.ball.y = 0;
-  //   }
-  // }
 
   handleMotion(event: DeviceMotionEvent) {
     const acc = event.accelerationIncludingGravity;
     if (!acc) return;
 
-    this.ball.vx = -(acc.x ?? 0) * this.ball.speed * 0.5;
-    this.ball.vy = (acc.y ?? 0) * this.ball.speed * 0.5;
-
+    this.ball.vx = (acc.x ?? 0) * this.ball.speed;
+    this.ball.vy = -(acc.y ?? 0) * this.ball.speed;
+    // const { x, y } = acc;
+    // if (Math.abs(x!) > Math.abs(y!)) {
+    //   x! > 0 ? this.moveBall('ArrowLeft') : this.moveBall('ArrowRight');
+    // } else {
+    //   y! > 0 ? this.moveBall('ArrowDown') : this.moveBall('ArrowUp');
+    // }
   }
-
-  updateBallPosition() {
-  const nextX = this.ball.x + this.ball.vx * 0.098;
-  const nextY = this.ball.y + this.ball.vy * 0.098;
-
-  const currentCell = this.grid.find(c =>
-    Math.floor(this.ball.x) === c.x && Math.floor(this.ball.y) === c.y
-  );
-
-  if (!currentCell) return;
-
-  // Controle para impedir que passe pelas paredes horizontalmente
-  if (this.ball.vx > 0 && currentCell.walls[1]) {
-    if (Math.floor(nextX + 0.49) > currentCell.x) {
-      this.ball.vx = 0;
-    } else {
-      this.ball.x = nextX;
-    }
-  } else if (this.ball.vx < 0 && currentCell.walls[3]) {
-    if (Math.floor(nextX - 0.49) < currentCell.x) {
-      this.ball.vx = 0;
-    } else {
-      this.ball.x = nextX;
-    }
-  } else {
-    this.ball.x = nextX;
-  }
-
-  // Controle para impedir que passe pelas paredes verticalmente
-  if (this.ball.vy > 0 && currentCell.walls[2]) {
-    if (Math.floor(nextY + 0.49) > currentCell.y) {
-      this.ball.vy = 0;
-    } else {
-      this.ball.y = nextY;
-    }
-  } else if (this.ball.vy < 0 && currentCell.walls[0]) {
-    if (Math.floor(nextY - 0.49) < currentCell.y) {
-      this.ball.vy = 0;
-    } else {
-      this.ball.y = nextY;
-    }
-  } else {
-    this.ball.y = nextY;
-  }
-
-  // Limites do canvas
-  this.ball.x = Math.max(0, Math.min(this.cols - 1, this.ball.x));
-  this.ball.y = Math.max(0, Math.min(this.rows - 1, this.ball.y));
-
-  // Chegou no final?
-  if (Math.floor(this.ball.x) === this.goal.x && Math.floor(this.ball.y) === this.goal.y) {
-    this.setupMaze();
-    this.ball.x = 0;
-    this.ball.y = 0;
-    this.ball.vx = 0;
-    this.ball.vy = 0;
-  }
-}
 
   gameLoop() {
-    this.generateMaze();
-    this.updateBallPosition();
-    this.draw();
-    requestAnimationFrame(() => this.gameLoop());
+    // this.generateMaze();
+    // this.draw();
+    // requestAnimationFrame(() => this.gameLoop());
+
+
   }
 
   @HostListener('window:keydown', ['$event'])
   onKeydown(event: KeyboardEvent) {
-     if (['ArrowUp', 'ArrowDown'].includes(event.key)) this.ball.vy = 0;
-  if (['ArrowLeft', 'ArrowRight'].includes(event.key)) this.ball.vx = 0;
+    this.moveBall(event.key);
   }
 }
 
@@ -260,7 +163,7 @@ class Cell {
   visited = false;
   walls = [true, true, true, true];
 
-  constructor(public x: number, public y: number) { }
+  constructor(public x: number, public y: number) {}
 
   draw(ctx: CanvasRenderingContext2D, size: number) {
     const x = this.x * size;
