@@ -1,88 +1,75 @@
-import { AfterViewInit, Component, ElementRef, HostListener, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 
 @Component({
   selector: 'app-game',
   templateUrl: './game.component.html',
   styleUrls: ['./game.component.scss']
 })
-export class GameComponent implements AfterViewInit {
+export class GameComponent implements OnInit, AfterViewInit {
   @ViewChild('gameCanvas', { static: true }) canvasRef!: ElementRef<HTMLCanvasElement>;
-
   private ctx!: CanvasRenderingContext2D;
   private cols = 15;
   private rows = 15;
   private cellSize!: number;
-
-  private grid: any[] = [];
-  private stack: any[] = [];
-  private current: any;
+  private grid: Cell[] = [];
+  private stack: Cell[] = [];
+  private current!: Cell;
   private goal = { x: this.cols - 1, y: this.rows - 1 };
-  private ball = { x: 0, y: 0, radius: 0, targetX: 0, targetY: 0, speed: 0.1 };
-
+  private ball = {
+  realX: 0,
+  realY: 0,
+  radius: 0,
+  vx: 0,
+  vy: 0,
+  speed: 0.4,
+  friction: 0.9,
+  };
   private directions = [
-    { x: 0, y: -1 },
-    { x: 1, y: 0 },
-    { x: 0, y: 1 },
-    { x: -1, y: 0 }
+    { x: 0, y: -1 }, // cima
+    { x: 1, y: 0 },  // direita
+    { x: 0, y: 1 },  // baixo
+    { x: -1, y: 0 }  // esquerda
   ];
+  private pressedKeys: { [key: string]: boolean } = {};
+  private isMobile = /Mobi|Android/i.test(navigator.userAgent);
 
-  ngAfterViewInit() {
+  ngOnInit(): void {
+    document.addEventListener("keydown", (e) => this.pressedKeys[e.key] = true);
+    document.addEventListener("keyup", (e) => this.pressedKeys[e.key] = false);
+    this.loopMovement();
+  }
+
+  ngAfterViewInit(): void {
     const canvas = this.canvasRef.nativeElement;
-    this.ctx = canvas.getContext('2d')!;
+    this.ctx = canvas.getContext("2d")!;
     this.resizeCanvas();
-
-    window.addEventListener('resize', this.resizeCanvas.bind(this));
-    window.addEventListener('devicemotion', this.handleMotion.bind(this));
+    window.addEventListener("resize", () => this.resizeCanvas());
 
     this.setupMaze();
     this.gameLoop();
+
+    if (this.isMobile) {
+      window.addEventListener("deviceorientation", this.handleOrientation.bind(this));
+    }
   }
 
-  @HostListener('window:keydown', ['$event'])
-  handleKeydown(event: KeyboardEvent) {
-    this.moveBall(event.key);
-  }
-
-  private resizeCanvas() {
+  private resizeCanvas(): void {
     const canvas = this.canvasRef.nativeElement;
     canvas.width = window.innerWidth * 0.9;
     canvas.height = window.innerHeight * 0.9;
     this.cellSize = Math.min(canvas.width / this.cols, canvas.height / this.rows);
     this.ball.radius = this.cellSize / 4;
+    this.ball.realX = 0;
+this.ball.realY = 0;
 
-    if (/Mobi|Android/i.test(navigator.userAgent)) {
-      this.ball.speed = 0.1;
-    }
   }
 
-  // Classe da célula
-  private Cell = class {
-    visited = false;
-    walls = [true, true, true, true];
-    constructor(public x: number, public y: number, private ctx: CanvasRenderingContext2D, private cellSize: number) {}
-    draw() {
-      const x = this.x * this.cellSize;
-      const y = this.y * this.cellSize;
-      this.ctx.strokeStyle = 'white';
-      this.ctx.lineWidth = 2;
-      if (this.walls[0]) this.drawLine(x, y, x + this.cellSize, y);
-      if (this.walls[1]) this.drawLine(x + this.cellSize, y, x + this.cellSize, y + this.cellSize);
-      if (this.walls[2]) this.drawLine(x, y + this.cellSize, x + this.cellSize, y + this.cellSize);
-      if (this.walls[3]) this.drawLine(x, y, x, y + this.cellSize);
-    }
-    drawLine(x1: number, y1: number, x2: number, y2: number) {
-      this.ctx.beginPath();
-      this.ctx.moveTo(x1, y1);
-      this.ctx.lineTo(x2, y2);
-      this.ctx.stroke();
-    }
-  };
-
-  private setupMaze() {
+  private setupMaze(): void {
     this.grid = [];
+    this.stack = [];
     for (let y = 0; y < this.rows; y++) {
       for (let x = 0; x < this.cols; x++) {
-        this.grid.push(new this.Cell(x, y, this.ctx, this.cellSize));
+        this.grid.push(new Cell(x, y));
       }
     }
     this.current = this.grid[0];
@@ -90,20 +77,20 @@ export class GameComponent implements AfterViewInit {
     this.stack.push(this.current);
   }
 
-  private getNeighbors(cell: any) {
-    const neighbors: any[] = [];
-    this.directions.forEach((dir, index) => {
+  private getNeighbors(cell: Cell): { neighbor: Cell, index: number }[] {
+    const neighbors: { neighbor: Cell, index: number }[] = [];
+    this.directions.forEach((dir, i) => {
       const nx = cell.x + dir.x;
       const ny = cell.y + dir.y;
       const neighbor = this.grid.find(c => c.x === nx && c.y === ny);
       if (neighbor && !neighbor.visited) {
-        neighbors.push({ neighbor, index });
+        neighbors.push({ neighbor, index: i });
       }
     });
     return neighbors;
   }
 
-  private generateMaze() {
+  private generateMaze(): void {
     if (this.stack.length > 0) {
       const neighbors = this.getNeighbors(this.current);
       if (neighbors.length > 0) {
@@ -114,66 +101,139 @@ export class GameComponent implements AfterViewInit {
         this.stack.push(neighbor);
         this.current = neighbor;
       } else {
-        this.current = this.stack.pop();
+        this.current = this.stack.pop()!;
       }
     }
   }
 
-  private draw() {
-    const canvas = this.canvasRef.nativeElement;
-    this.ctx.clearRect(0, 0, canvas.width, canvas.height);
-    this.grid.forEach(cell => cell.draw());
-    // Red
-    this.ctx.fillStyle = 'white';
-    this.ctx.beginPath();
-    this.ctx.arc(this.goal.x * this.cellSize + this.cellSize / 2, this.goal.y * this.cellSize + this.cellSize / 2, this.cellSize / 4, 0, Math.PI * 2);
-    this.ctx.fill();
-    // Blue
-    this.ctx.fillStyle = 'black';
-    this.ctx.beginPath();
-    this.ctx.arc(this.ball.x * this.cellSize + this.cellSize / 2, this.ball.y * this.cellSize + this.cellSize / 2, this.ball.radius, 0, Math.PI * 2);
-    this.ctx.fill();
+  private draw(): void {
+  const ctx = this.ctx;
+  ctx.clearRect(0, 0, this.canvasRef.nativeElement.width, this.canvasRef.nativeElement.height);
+
+  this.grid.forEach(cell => cell.draw(ctx, this.cellSize));
+
+  // Goal
+  ctx.fillStyle = "white";
+  ctx.beginPath();
+  ctx.arc(this.goal.x * this.cellSize + this.cellSize / 2, this.goal.y * this.cellSize + this.cellSize / 2, this.cellSize / 4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Ball
+  ctx.fillStyle = "black";
+  ctx.beginPath();
+  // ctx.arc(this.ball.realX + this.cellSize / 2, this.ball.realY + this.cellSize / 2, this.ball.radius, 0, Math.PI * 2);
+  ctx.arc(this.ball.realX, this.ball.realY, this.ball.radius, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+private updateBall(): void {
+  // Atualiza posição com velocidade
+  this.ball.realX += this.ball.vx;
+  this.ball.realY += this.ball.vy;
+
+  // Aplica atrito
+  this.ball.vx *= this.ball.friction;
+  this.ball.vy *= this.ball.friction;
+
+  const r = this.ball.radius;
+  const cellX = Math.floor(this.ball.realX / this.cellSize);
+  const cellY = Math.floor(this.ball.realY / this.cellSize);
+  const cell = this.grid.find(c => c.x === cellX && c.y === cellY);
+  if (!cell) return;
+
+  const px = this.ball.realX % this.cellSize;
+  const py = this.ball.realY % this.cellSize;
+
+  // Colisão com paredes
+  if (cell.walls[0] && py - r < 0) this.ball.realY = cellY * this.cellSize + r;
+  if (cell.walls[2] && py + r > this.cellSize) this.ball.realY = (cellY + 1) * this.cellSize - r;
+  if (cell.walls[3] && px - r < 0) this.ball.realX = cellX * this.cellSize + r;
+  if (cell.walls[1] && px + r > this.cellSize) this.ball.realX = (cellX + 1) * this.cellSize - r;
+
+  // Verifica colisão com célula da direita
+  const rightCell = this.grid.find(c => c.x === cellX + 1 && c.y === cellY);
+  if (rightCell?.walls[3] && px + r > this.cellSize) {
+    this.ball.realX = (cellX + 1) * this.cellSize - r;
   }
 
-  private moveBall(direction: string) {
-    let newX = this.ball.x;
-    let newY = this.ball.y;
-    if (direction === 'ArrowUp' || direction === 'up') newY--;
-    if (direction === 'ArrowDown' || direction === 'down') newY++;
-    if (direction === 'ArrowLeft' || direction === 'left') newX--;
-    if (direction === 'ArrowRight' || direction === 'right') newX++;
-
-    const currentCell = this.grid.find(c => c.x === this.ball.x && c.y === this.ball.y);
-    const targetCell = this.grid.find(c => c.x === newX && c.y === newY);
-    const directionIndex = this.directions.findIndex(d => d.x === newX - this.ball.x && d.y === newY - this.ball.y);
-
-    if (targetCell && !currentCell.walls[directionIndex]) {
-      this.ball.x = newX;
-      this.ball.y = newY;
-    }
-
-    if (this.ball.x === this.goal.x && this.ball.y === this.goal.y) {
-      this.setupMaze();
-      this.ball.x = 0;
-      this.ball.y = 0;
-    }
+  // Colisão com célula abaixo
+  const bottomCell = this.grid.find(c => c.x === cellX && c.y === cellY + 1);
+  if (bottomCell?.walls[0] && py + r > this.cellSize) {
+    this.ball.realY = (cellY + 1) * this.cellSize - r;
   }
 
-  private handleMotion(event: DeviceMotionEvent) {
-    const acc = event.accelerationIncludingGravity;
-    if (!acc) return;
-
-    const { x, y } = acc;
-    if (Math.abs(x!) > Math.abs(y!)) {
-      this.moveBall(x! > 0 ? 'ArrowLeft' : 'ArrowRight');
-    } else {
-      this.moveBall(y! > 0 ? 'ArrowDown' : 'ArrowUp');
-    }
+  // Chegou na meta
+  if (
+    Math.floor(this.ball.realX / this.cellSize) === this.goal.x &&
+    Math.floor(this.ball.realY / this.cellSize) === this.goal.y
+  ) {
+    this.setupMaze();
+    this.ball.realX = 0;
+    this.ball.realY = 0;
+    this.ball.vx = 0;
+    this.ball.vy = 0;
   }
+}
 
-  private gameLoop() {
+
+
+  private handleOrientation(event: DeviceOrientationEvent): void {
+  const beta = event.beta ?? 0;
+  const gamma = event.gamma ?? 0;
+
+  if (gamma > 5) this.ball.vx += this.ball.speed;
+  if (gamma < -5) this.ball.vx -= this.ball.speed;
+
+  if (beta > 15) this.ball.vy += this.ball.speed;
+  if (beta < 5) this.ball.vy -= this.ball.speed;
+}
+
+
+  private loopMovement(): void {
+  if (this.pressedKeys["ArrowUp"]) this.ball.vy -= this.ball.speed;
+  if (this.pressedKeys["ArrowDown"]) this.ball.vy += this.ball.speed;
+  if (this.pressedKeys["ArrowLeft"]) this.ball.vx -= this.ball.speed;
+  if (this.pressedKeys["ArrowRight"]) this.ball.vx += this.ball.speed;
+
+  requestAnimationFrame(() => this.loopMovement());
+}
+
+
+  private gameLoop(): void {
     this.generateMaze();
+    this.updateBall();
     this.draw();
     requestAnimationFrame(() => this.gameLoop());
+  }
+}
+
+class Cell {
+  x: number;
+  y: number;
+  visited: boolean = false;
+  walls: boolean[] = [true, true, true, true];
+
+  constructor(x: number, y: number) {
+    this.x = x;
+    this.y = y;
+  }
+
+  draw(ctx: CanvasRenderingContext2D, size: number): void {
+    const x = this.x * size;
+    const y = this.y * size;
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2;
+
+    if (this.walls[0]) this.drawLine(ctx, x, y, x + size, y);
+    if (this.walls[1]) this.drawLine(ctx, x + size, y, x + size, y + size);
+    if (this.walls[2]) this.drawLine(ctx, x, y + size, x + size, y + size);
+    if (this.walls[3]) this.drawLine(ctx, x, y, x, y + size);
+  }
+
+  private drawLine(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number): void {
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
   }
 }

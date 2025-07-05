@@ -3,10 +3,11 @@
   justify-content: center;
   align-items: center;
   height: 100vh;
+  width: 100vw;
   margin: 0;
   overflow: hidden;
-  background: radial-gradient(closest-side, rgb(255, 1, 255),  rgb(255, 72, 0), rgb(127, 255, 68),  rgb(45, 194, 253), rgb(0, 19, 190)  );
-  animation: gradientAnimation 30s infinite alternate;
+  background: radial-gradient(circle, rgb(255, 1, 255),  rgb(255, 72, 0), rgb(127, 255, 68),  rgb(45, 194, 253), rgb(255, 12, 114)  );
+  animation: gradientAnimation 50s infinite alternate;
   background-size: 50% 150%;
 }
 
@@ -15,16 +16,16 @@
     background-position: 0% 50%;
   }
   20% {
-    background-position: 100% 150%;
+    background-position: 100% 170%;
   }
   60% {
-    background-position: 100% 250%;
+    background-position: 475% 250%;
   }
   80% {
-    background-position: 400% 350%;
+    background-position: 425% 689%;
   }
   100% {
-    background-position: 0% 50%;
+    background-position: 100% 50%;
   }
 }
 
