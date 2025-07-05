@@ -5,17 +5,23 @@
   height: 100vh;
   margin: 0;
   overflow: hidden;
-  background: radial-gradient(circle, rgb(127, 255, 68), rgb(255, 1, 255), rgb(45, 194, 253));
-  animation: gradientAnimation 10s infinite linear alternate;
-  background-size: 300% 300%;
+  background: radial-gradient(closest-side, rgb(255, 1, 255),  rgb(255, 72, 0), rgb(127, 255, 68),  rgb(45, 194, 253), rgb(0, 19, 190)  );
+  animation: gradientAnimation 30s infinite alternate;
+  background-size: 50% 150%;
 }
 
 @keyframes gradientAnimation {
   0% {
     background-position: 0% 50%;
   }
-  50% {
-    background-position: 100% 50%;
+  20% {
+    background-position: 100% 150%;
+  }
+  60% {
+    background-position: 100% 250%;
+  }
+  80% {
+    background-position: 400% 350%;
   }
   100% {
     background-position: 0% 50%;
