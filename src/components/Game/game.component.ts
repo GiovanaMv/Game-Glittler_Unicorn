@@ -135,6 +135,11 @@ private updateBall(): void {
   this.ball.vx *= this.ball.friction;
   this.ball.vy *= this.ball.friction;
 
+  // 🧠 Limita a velocidade máxima para evitar atravessar parede
+  const maxSpeed = 4;
+  this.ball.vx = Math.max(-maxSpeed, Math.min(this.ball.vx, maxSpeed));
+  this.ball.vy = Math.max(-maxSpeed, Math.min(this.ball.vy, maxSpeed));
+
   const r = this.ball.radius;
   const cellX = Math.floor(this.ball.realX / this.cellSize);
   const cellY = Math.floor(this.ball.realY / this.cellSize);
