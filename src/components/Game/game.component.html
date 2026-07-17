@@ -1,1 +1,21 @@
- <canvas #gameCanvas></canvas>
+<div class="game-container">
+  <!-- Header com informações -->
+  <div class="game-header">
+    <div class="level-info">Fase: {{ currentLevel + 1 }}/10</div>
+    <div class="timer-container">
+      <div class="timer-bar" [style.width.%]="timerPercentage" [class.warning]="timerPercentage < 20"></div>
+      <span class="timer-text">{{ timerDisplay }}</span>
+    </div>
+  </div>
+
+  <canvas #gameCanvas></canvas>
+
+  @if (gameOver) {
+    <div class="overlay">
+      <div class="overlay-content">
+        <h2>{{ gameOverMessage }}</h2>
+        <button (click)="resetGame()">Jogar Novamente</button>
+      </div>
+    </div>
+  }
+</div>
